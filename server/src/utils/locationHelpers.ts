@@ -10,7 +10,7 @@ export const getLocationFromString = (location: string) => {
 export const getLocationQueryParams = (
   model,
   fieldToFilter,
-  locationQuery
+  locationQuery,
 ): [number | null, number | null, number] | null => {
   if (
     model?.attributes?.[fieldToFilter]?.customField !==

@@ -1,6 +1,8 @@
-import { Strapi } from "@strapi/strapi";
+import { Core } from "@strapi/strapi";
 import _ from "lodash";
+
 import { getLocationQueryParams } from "./locationHelpers";
+import pluginId from "../../../admin/src/pluginId";
 
 type Location = { lat?: string; lng?: string; range?: string } | string;
 type LocationQuery = {
@@ -11,16 +13,15 @@ type LogicalQuery =
   | { $and: LocationQuery[]; $or?: never };
 type LocationQueryCombined = LocationQuery | LogicalQuery;
 
-const locaitonServiceUid = "plugin::location-plugin.locationServices";
-const createFilterMiddleware = (strapi: Strapi) => {
+const createFilterMiddleware = (strapi: Core.Strapi) => {
   const db = strapi.db.connection;
-  const modelsWithLocation =
-    strapi.services[locaitonServiceUid].getModelsWithLocation();
+  const locationServices = strapi.plugin(pluginId).service("locationServices");
+  const modelsWithLocation = locationServices.getModelsWithLocation();
 
   return async (ctx, next) => {
     if (ctx.request.method !== "GET") return next();
-    const url = ctx.request.url;
 
+    const url = ctx.request.url;
     const collectionType = url
       .replace(strapi.config.api.rest.prefix, "")
       .split("/")[1]
@@ -34,9 +35,9 @@ const createFilterMiddleware = (strapi: Strapi) => {
       model.collectionName === _.snakeCase(collectionType);
     const collectionModel = !isComponentQuery
       ? modelsWithLocation.find((model) => modelCondition(model))
-      : strapi.db.config.models.find(
-          //@ts-ignore
-          (model) => model.collectionName === _.snakeCase(collectionType)
+      : Object.values(strapi.contentTypes).find(
+          (contentType) =>
+            contentType.collectionName === _.snakeCase(collectionType),
         );
 
     if (
@@ -63,7 +64,7 @@ const createFilterMiddleware = (strapi: Strapi) => {
       componentAttrField &&
       modelsWithLocation.find(
         (modelWithLocation) =>
-          modelWithLocation.uid === componentAttrField.component
+          modelWithLocation.uid === componentAttrField.component,
       );
     ctx.query = _.omit(ctx.query, ["$location"]);
     const componentsToFilter = locationKeys.map((key) => key.split(".")[1]);
@@ -85,7 +86,7 @@ const createFilterMiddleware = (strapi: Strapi) => {
       const locationQueryParams = getLocationQueryParams(
         filterModel,
         fieldToFilter,
-        mutatedLocationQuery
+        mutatedLocationQuery,
       );
       if (!locationQueryParams) {
         // TODO: add warning that location query is not valid
@@ -106,14 +107,14 @@ const createFilterMiddleware = (strapi: Strapi) => {
               .select("id")
               .whereIn(
                 "id",
-                componentIdPairs.map((pair) => pair.component_id)
+                componentIdPairs.map((pair) => pair.component_id),
               )
               .whereRaw(
                 `
         ST_DWithin(
         ${_.snakeCase(fieldToFilter)}_geom,
         ST_SetSRID(ST_MakePoint(?, ?), 4326), ?)`,
-                [lng, lat, range ?? 0]
+                [lng, lat, range ?? 0],
               )
           : null;
       const ids =
@@ -121,7 +122,7 @@ const createFilterMiddleware = (strapi: Strapi) => {
           ? matchedComponents.map(
               (comp) =>
                 componentIdPairs.find((pair) => pair.component_id === comp.id)
-                  .entity_id
+                  .entity_id,
             )
           : (
               await db(collectionModel.tableName)
@@ -131,7 +132,7 @@ const createFilterMiddleware = (strapi: Strapi) => {
               ST_DWithin(
               ${_.snakeCase(fieldToFilter)}_geom,
               ST_SetSRID(ST_MakePoint(?, ?), 4326), ?)`,
-                  [lng, lat, range ?? 0]
+                  [lng, lat, range ?? 0],
                 )
             ).map((item) => item.id);
 
@@ -164,12 +165,12 @@ const createFilterMiddleware = (strapi: Strapi) => {
             const locationQueryParams = getLocationQueryParams(
               collectionModel,
               field,
-              item
+              item,
             );
             if (!!locationQueryParams) {
               const [lat, lng, range] = locationQueryParams;
               return `ST_DWithin(${_.snakeCase(
-                field
+                field,
               )}_geom, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326), ${
                 range ?? 0
               })`;
@@ -188,7 +189,7 @@ const createFilterMiddleware = (strapi: Strapi) => {
     }
 
     const wholeQuery = dbQuery.map((item, index) =>
-      index === 0 ? `(${item})` : `${logicalOperators[fieldToFilter]} ${item}`
+      index === 0 ? `(${item})` : `${logicalOperators[fieldToFilter]} ${item}`,
     );
     const ids = (
       await db(collectionModel.tableName)

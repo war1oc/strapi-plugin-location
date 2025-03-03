@@ -1,35 +1,42 @@
-import { GridItem, NumberInput } from "@strapi/design-system";
+import { Flex, NumberInput, Typography } from "@strapi/design-system";
 import React from "react";
+
 const LocationInputForm = ({
   lat,
   lng,
   handleSetLocation,
 }: {
-  lat: number | null;
-  lng: number | null;
-  handleSetLocation: (newValue: [number | null, number | null]) => void;
+  lat: number | undefined;
+  lng: number | undefined;
+  handleSetLocation: (
+    newValue: [number | undefined, number | undefined],
+  ) => void;
 }) => {
   return (
-    <>
-      <GridItem col={6}>
-        <NumberInput
-          label="Lat"
-          value={lat ? lat : 0}
-          onValueChange={(newValue: number) =>
-            handleSetLocation([newValue, lng])
-          }
-        />
-      </GridItem>
-      <GridItem col={6}>
-        <NumberInput
-          label="Lng"
-          value={lng ? lng : 0}
-          onValueChange={(newValue: number) =>
-            handleSetLocation([lat, newValue])
-          }
-        />
-      </GridItem>
-    </>
+    <Flex direction="column" gap={4}>
+      <Flex gap={4}>
+        <Flex direction="column" gap={2}>
+          <Typography variant="pi" fontWeight="bold">
+            Lat
+          </Typography>
+          <NumberInput
+            name="lat"
+            value={lat ?? 0}
+            onValueChange={(value) => handleSetLocation([value, lng])}
+          />
+        </Flex>
+        <Flex direction="column" gap={2}>
+          <Typography variant="pi" fontWeight="bold">
+            Lng
+          </Typography>
+          <NumberInput
+            name="lng"
+            value={lng ?? 0}
+            onValueChange={(value) => handleSetLocation([lat, value])}
+          />
+        </Flex>
+      </Flex>
+    </Flex>
   );
 };
 

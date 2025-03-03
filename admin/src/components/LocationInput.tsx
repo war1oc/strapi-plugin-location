@@ -4,87 +4,86 @@
  *
  */
 
-import {
-  Box,
-  Button,
-  Grid,
-  GridItem,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
-  ModalLayout,
-  Typography,
-} from "@strapi/design-system";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-//@ts-ignore
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-//@ts-ignore
-import iconRetina from "leaflet/dist/images/marker-icon-2x.png";
-//@ts-ignore
-import _ from "lodash";
+import { Box, Button, Flex, Modal, Typography } from "@strapi/design-system";
+import * as L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import LocationInputForm from "./LocationInputForm";
 import LocationTextInput from "./LocationTextInput";
 
-//@ts-ignore
-const icon = L.icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: iconRetina,
-  iconSize: [25, 41],
-  iconAnchor: [12.5, 41],
-});
+import "leaflet/dist/leaflet.css";
 
-const parseValue = (value: string): [number | null, number | null] => {
+// Utility function to parse the input value
+const parseValue = (
+  value: string,
+): [number | undefined, number | undefined] => {
   try {
     const object = JSON.parse(value);
 
     if (!object?.lat || !object?.lng) {
-      return [null, null];
+      return [undefined, undefined];
     }
-    return [
-      _.pick(object, ["lat", "lng"]).lat,
-      _.pick(object, ["lat", "lng"]).lng,
-    ];
+
+    return [object.lat, object.lng];
   } catch (error) {
-    return [null, null];
+    return [undefined, undefined];
   }
 };
 
-//@ts-ignore
-const LocationInput = ({ value, onChange, name, attribute }) => {
-  const [defLat, defLng] = [49.195678016117164, 16.608182539182483];
-  const [[lat, lng], setLocation] = useState(parseValue(value));
-  const [isModalVisible, setIsModalVisible] = useState(false);
+// Define component props type
+interface LocationInputProps {
+  value: string;
+  onChange: (e: {
+    target: { name: string; value: string; type: string };
+  }) => void;
+  name: string;
+  attribute: { type: string };
+}
 
-  function FlyMapTo() {
+const LocationInput: React.FC<LocationInputProps> = ({
+  value,
+  onChange,
+  name,
+  attribute,
+}) => {
+  const defaultCoordinates = [49.195678016117164, 16.608182539182483];
+  const [[lat, lng], setLocation] = useState<
+    [number | undefined, number | undefined]
+  >(parseValue(value));
+
+  const markerRef = useRef<L.Marker>(null);
+
+  // Map fly-to functionality
+  const FlyMapTo = () => {
     const map = useMap();
 
     useEffect(() => {
-      map.setView([lat ? lat : defLat, lng ? lng : defLng], 15);
-    }, [lat, lng]);
+      map.setView(
+        [lat || defaultCoordinates[0], lng || defaultCoordinates[1]],
+        15,
+      );
+    }, [lat, lng, map]);
 
     return null;
-  }
+  };
 
-  const markerRef = useRef(null);
-
+  // Handle drag events for the marker
   const eventHandlers = useMemo(
     () => ({
       dragend() {
-        const marker = markerRef.current;
-        if (marker != null) {
-          //@ts-ignore
-          const { lat: newLat, lng: newLng } = marker.getLatLng();
+        if (markerRef.current) {
+          const { lat: newLat, lng: newLng } = markerRef.current.getLatLng();
           handleSetLocation([newLat, newLng]);
         }
       },
     }),
-    []
+    [],
   );
 
-  const handleSetLocation = (newValue: [number | null, number | null]) => {
+  // Update location and trigger onChange
+  const handleSetLocation = (
+    newValue: [number | undefined, number | undefined],
+  ) => {
     setLocation(newValue);
     onChange({
       target: {
@@ -100,46 +99,37 @@ const LocationInput = ({ value, onChange, name, attribute }) => {
       <Typography fontWeight="bold" variant="pi">
         {name}
       </Typography>
-      <Grid gap={5}>
+      <Flex direction="column" gap={4}>
         <LocationInputForm
           lat={lat}
           lng={lng}
           handleSetLocation={handleSetLocation}
         />
-        <GridItem col={12}>
-          <Button onClick={() => setIsModalVisible((prev) => !prev)}>
-            Open map
-          </Button>
-          {isModalVisible && (
-            <ModalLayout
-              onClose={() => setIsModalVisible((prev) => !prev)}
-              labelledBy="title"
-            >
-              <ModalHeader>
-                <Typography
-                  fontWeight="bold"
-                  textColor="neutral800"
-                  as="h2"
-                  id="title"
-                >
-                  Title
-                </Typography>
-              </ModalHeader>
-              <ModalBody>
-                <Grid gap={5} className="pb-2">
-                  <LocationInputForm
-                    lat={lat}
-                    lng={lng}
-                    handleSetLocation={handleSetLocation}
-                  />
-                </Grid>
+        <Modal.Root>
+          <Modal.Trigger>
+            <Button>Open map</Button>
+          </Modal.Trigger>
+          <Modal.Content>
+            <Modal.Header>
+              <Modal.Title>Set Location</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <Flex direction="column" gap={6}>
+                <LocationInputForm
+                  lat={lat}
+                  lng={lng}
+                  handleSetLocation={handleSetLocation}
+                />
                 <LocationTextInput handleSetLocation={handleSetLocation} />
-                <Box paddingTop={6}>
+                <Box height="300px" style={{ width: "100%" }}>
                   <MapContainer
-                    center={[lat ? lat : defLat, lng ? lng : defLng]}
+                    center={[
+                      lat || defaultCoordinates[0],
+                      lng || defaultCoordinates[1],
+                    ]}
                     zoom={12}
                     scrollWheelZoom={false}
-                    style={{ height: "300px" }}
+                    style={{ height: "100%", width: "100%" }}
                   >
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -149,26 +139,24 @@ const LocationInput = ({ value, onChange, name, attribute }) => {
                       draggable
                       eventHandlers={eventHandlers}
                       ref={markerRef}
-                      position={[lat ? lat : defLat, lng ? lng : defLng]}
-                      icon={icon}
-                    ></Marker>
+                      position={[
+                        lat || defaultCoordinates[0],
+                        lng || defaultCoordinates[1],
+                      ]}
+                    />
                     <FlyMapTo />
                   </MapContainer>
                 </Box>
-              </ModalBody>
-              <ModalFooter
-                endActions={
-                  <>
-                    <Button onClick={() => setIsModalVisible((prev) => !prev)}>
-                      Ok
-                    </Button>
-                  </>
-                }
-              />
-            </ModalLayout>
-          )}
-        </GridItem>
-      </Grid>
+              </Flex>
+            </Modal.Body>
+            <Modal.Footer>
+              <Modal.Close>
+                <Button variant="tertiary">Done</Button>
+              </Modal.Close>
+            </Modal.Footer>
+          </Modal.Content>
+        </Modal.Root>
+      </Flex>
     </Box>
   );
 };

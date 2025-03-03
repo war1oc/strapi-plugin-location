@@ -1,6 +1,6 @@
-import { Strapi } from "@strapi/strapi";
+import { Core } from "@strapi/strapi";
 
-const locationServices = ({ strapi }: { strapi: Strapi }) => ({
+const locationServices = ({ strapi }: { strapi: Core.Strapi }) => ({
   getLocationFields: (modelAttributes: any) => {
     return Object.entries(modelAttributes)
       .map(([key, value]) => {
@@ -18,16 +18,15 @@ const locationServices = ({ strapi }: { strapi: Strapi }) => ({
       .filter(Boolean);
   },
   getModelsWithLocation: () => {
-    return strapi.db.config.models
+    return Object.values(strapi.contentTypes)
       .filter(
-        (model) =>
-          (model.uid as string).startsWith("api::") ||
-          //@ts-ignore
-          model.modelType === "component" ||
-          (model.uid as string) === "plugin::users-permissions.user"
+        (contentType) =>
+          (contentType.uid as string).startsWith("api::") ||
+          contentType.modelType === "component" ||
+          (contentType.uid as string) === "plugin::users-permissions.user",
       )
-      .map((model) => {
-        const hasLocationField = Object.values(model.attributes).some(
+      .map((contentType) => {
+        const hasLocationField = Object.values(contentType.attributes).some(
           (entry) => {
             if (
               entry &&
@@ -39,9 +38,9 @@ const locationServices = ({ strapi }: { strapi: Strapi }) => ({
             } else {
               return false;
             }
-          }
+          },
         );
-        return hasLocationField ? model : false;
+        return hasLocationField ? contentType : false;
       })
       .filter(Boolean);
   },
